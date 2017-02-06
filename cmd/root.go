@@ -25,6 +25,8 @@ import (
 	"github.com/skippbox/kubeless/pkg/utils"
 	"github.com/spf13/cobra"
 
+	clientk8s "k8s.io/client-go/1.4/kubernetes"
+	clientrest "k8s.io/client-go/1.4/rest"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 )
 
@@ -75,7 +77,12 @@ func newControllerConfig(masterHost, ns string) controller.Config {
 		if err != nil {
 			fmt.Println(err)
 		} else {
-			masterHost = k8sHost
+			// Set masterHost only when there's no existing clientset.
+			// Otherwise starting the new controller could fail with the
+			// existing clientset.
+			if cset := getK8sClient(); cset == nil {
+				masterHost = k8sHost
+			}
 		}
 	}
 	cfg := controller.Config{
@@ -96,4 +103,20 @@ func getK8sConfigHost(f *cmdutil.Factory) (string, error) {
 		return "", fmt.Errorf("Got nil k8sConfig, please check if k8s cluster is available.")
 	}
 	return k8sConfig.Host, nil
+}
+
+func getK8sClient() *clientk8s.Clientset {
+	cfg, err := clientrest.InClusterConfig()
+	if err != nil {
+		logrus.Infof("Cannot get kubernetes client config: %v", err)
+		return nil
+	}
+
+	cset, err := clientk8s.NewForConfig(cfg)
+	if err != nil {
+		logrus.Infof("Cannot get kubernetes client: %v", err)
+		return nil
+	}
+
+	return cset
 }

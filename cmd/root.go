@@ -24,6 +24,8 @@ import (
 	"github.com/skippbox/kubeless/pkg/controller"
 	"github.com/skippbox/kubeless/pkg/utils"
 	"github.com/spf13/cobra"
+
+	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 )
 
 var RootCmd = &cobra.Command{
@@ -67,15 +69,13 @@ func newControllerConfig(masterHost, ns string) controller.Config {
 			fmt.Errorf("Can not get kubernetes config: %s", err)
 		}
 	}
+
 	if masterHost == "" {
-		k8sConfig, err := f.ClientConfig()
+		k8sHost, err := getK8sConfigHost(f)
 		if err != nil {
-			fmt.Errorf("Can not get kubernetes config: %s", err)
-		}
-		if k8sConfig == nil {
-			fmt.Errorf("Got nil k8sConfig, please check if k8s cluster is available.")
+			fmt.Println(err)
 		} else {
-			masterHost = k8sConfig.Host
+			masterHost = k8sHost
 		}
 	}
 	cfg := controller.Config{
@@ -85,4 +85,15 @@ func newControllerConfig(masterHost, ns string) controller.Config {
 	}
 
 	return cfg
+}
+
+func getK8sConfigHost(f *cmdutil.Factory) (string, error) {
+	k8sConfig, err := f.ClientConfig()
+	if err != nil {
+		return "", fmt.Errorf("Can not get kubernetes config: %s", err)
+	}
+	if k8sConfig == nil {
+		return "", fmt.Errorf("Got nil k8sConfig, please check if k8s cluster is available.")
+	}
+	return k8sConfig.Host, nil
 }
